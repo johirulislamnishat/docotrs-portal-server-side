@@ -23,9 +23,11 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 // const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
 client.connect((err) => {
-	const doctorCollection = client.db('doctorsPortal').collection('doctors');
+	const usersCollection = client.db('doctorsPortal').collection('users');
+	const doctorsCollection = client.db('doctorsPortal').collection('doctors');
 	const appointmentCollection = client.db('doctorsPortal').collection('appointments');
-	const reviewCollection = client.db('doctorsPortal').collection('reviews');
+	const reviewCollection = client.db('doctorsPortal').collection('addReviews');
+
 
 	console.log('Doctors Portal DataBase Connected');
 
@@ -33,76 +35,145 @@ client.connect((err) => {
 	// Root Route
 	app.get('/', (req, res) => res.send('Welcome to Doctors Portal Backed'));
 
-	// Get all services Information
-	app.get('/doctors', (req, res) => {
-		doctorCollection.find({}).toArray((err, documents) => {
-			res.send(documents);
-		});
+	//USER POST API 
+	app.post('/users', async (req, res) => {
+		const user = req.body;
+		const result = await usersCollection.insertOne(user);
+		// console.log(result);
+		res.json(result);
 	});
 
-	// Get all Booked Appointments
-	app.get('/bookedAppointments', (req, res) => {
-		appointmentCollection.find({}).toArray((err, documents) => {
-			res.send(documents);
-		});
+	app.get('/users', async (req, res) => {
+		const cursor = usersCollection.find({});
+		const user = await cursor.toArray();
+		res.send(user)
+
+	})
+
+	app.put('/users/admin', async (req, res) => {
+		const user = req.body;
+		// console.log(user);
+		const filter = { email: user.email };
+		const options = { upsert: true };
+
+		const updateDoc = { $set: { role: 'admin' } };
+		const result = await usersCollection.updateOne(filter, updateDoc, options);
+		res.json(result);
+	})
+
+	app.get('/users/:email', async (req, res) => {
+		const email = req.params.email;
+		const query = { email: email };
+		const user = await usersCollection.findOne(query);
+		let isAdmin = false;
+		if (user?.role === 'admin') {
+			isAdmin = true;
+		}
+		res.json({ admin: isAdmin });
+	})
+
+	//DELETE USER API
+	app.delete('/deleteUser/:id', async (req, res) => {
+		const id = req.params.id;
+		const query = { _id: ObjectId(id) };
+		const result = await usersCollection.deleteOne(query);
+		// console.log(result);
+		res.send(result)
+	})
+
+	//DOCTORS POST API
+	app.post('/doctors', async (req, res) => {
+		const doctors = req.body;
+		const result = await doctorsCollection.insertOne(doctors)
+		// console.log(result);
+		res.json(result)
 	});
 
-	// Get all Reviews
-	app.get('/allReviews', (req, res) => {
-		reviewCollection.find({}).toArray((err, documents) => {
-			res.send(documents);
-		});
+	//DOCTORS GET API
+	app.get('/doctors', async (req, res) => {
+		const cursor = doctorsCollection.find({});
+		const doctors = await cursor.toArray();
+		res.send(doctors)
+	})
+
+	//DOCTORS Single Item
+	app.get('/doctors/:id', async (req, res) => {
+		const id = req.params.id;
+		const query = { _id: ObjectId(id) };
+		const result = await doctorsCollection.findOne(query);
+		res.send(result)
+	})
+
+
+	//APPOINTMENT POST API
+	app.post('/appointments', async (req, res) => {
+		const appointments = req.body;
+		const result = await appointmentCollection.insertOne(appointments)
+		// console.log(result);
+		res.json(result)
 	});
 
-	//Routes -- Post method
-	// Added all doctors Information
-	app.post('/addDoctor', (req, res) => {
-		const doctorData = req.body;
-		doctorCollection.insertMany(doctorData).then((result) => {
-			console.log(result.insertedCount, 'All Data Inserted');
-			res.send(result.insertedCount);
-		});
-	});
+	//APPOINTMENT GET API
+	app.get('/appointments', async (req, res) => {
+		const cursor = appointmentCollection.find({});
+		const result = await cursor.toArray();
+		res.json(result);
+	})
 
-	// Insert Appointment Booking
-	app.post('/makeBooking', (req, res) => {
-		const appointmentData = req.body;
-		appointmentCollection.insertOne(appointmentData, (err, result) => {
-			console.log(result.insertedCount, 'Appointment Inserted');
-			res.send(result.insertedCount > 0);
-		});
-	});
+	//DELETE APPOINTMENT API
+	app.delete('/appointments/:id', async (req, res) => {
+		const id = req.params.id;
+		const query = { _id: ObjectId(id) };
+		const result = await appointmentCollection.deleteOne(query);
+		// console.log(result);
+		res.send(result)
+	})
 
-	// Insert A New Doctor
-	app.post('/addADoctor', (req, res) => {
-		const file = req.files.file;
-		const id = req.body.id;
-		const category = req.body.category;
-		const name = req.body.name;
-		const education = req.body.education;
-		const designation = req.body.designation;
-		const department = req.body.department;
-		const hospital = req.body.hospital;
-		const img = req.body.img;
+	//GET APPOINTMENT BY EMAIL
+	app.get('/appointments/:email', async (req, res) => {
+		// const email = req.query.email;
+		const result = await appointmentCollection.find({ email: req.params.email }).toArray();
+		// console.log(result);
+		res.send(result)
+	})
 
-		const newImg = file.data;
-		const encImg = newImg.toString('base64');
+	//Cancel Appointments API
+	app.delete('/cancelAppointments/:id', async (req, res) => {
+		const id = req.params.id;
+		const query = { _id: ObjectId(id) };
+		const result = await appointmentCollection.deleteOne(query);
+		// console.log(result);
+		res.send(result)
+	})
 
-		var image = {
-			contentType: file.mimetype,
-			size: file.size,
-			img: Buffer.from(encImg, 'base64')
-		};
+	// meetlink put
+	app.put('/appointments/meetlink', async (req, res) => {
+		const user = req.body;
+		// console.log(user);
+		const filter = { meetlink: user.meetlink };
+		const options = { upsert: true };
 
-		doctorCollection
-			.insertOne({ id, category, name, education, designation, department, hospital, img, image })
-			.then((result) => {
-				res.send(result.insertedCount > 0);
-				console.log(result.insertedCount, 'Doctor Inserted');
-			});
-	});
+		const updateDoc = { $set: { meetlink: 'meetlink' } };
+		const result = await appointmentCollection.updateOne(filter, updateDoc, options);
+		res.json(result);
+	})
 
 	// Added A New Doctor Review
+	app.post('/addReviews', async (req, res) => {
+		const review = req.body;
+		const result = await reviewCollection.insertOne(review)
+		// console.log(result);
+		res.json(result)
+	});
+
+	//REVIEW GET API
+	app.get('/addReviews', async (req, res) => {
+		const cursor = reviewCollection.find({});
+		const result = await cursor.toArray();
+		res.send(result)
+	})
+
+
 	app.post('/addReview', (req, res) => {
 		const reviewData = req.body;
 		reviewCollection.insertOne(reviewData).then((result) => {
