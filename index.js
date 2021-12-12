@@ -5,6 +5,7 @@ const MongoClient = require('mongodb').MongoClient;
 const ObjectId = require('mongodb').ObjectId;
 require('dotenv').config();
 const fileUpload = require('express-fileupload');
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
 const port = process.env.PORT || 5000;
 
 const app = express();
@@ -13,14 +14,9 @@ app.use(BodyParser.json());
 app.use(express.static('doctors'));
 app.use(fileUpload());
 
-// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.v9ypd.mongodb.net/${process.env
-// 	.DB_NAME}?retryWrites=true&w=majority`;
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.fvccc.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
-
-// const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
 client.connect((err) => {
 	const usersCollection = client.db('doctorsPortal').collection('users');
@@ -104,6 +100,15 @@ client.connect((err) => {
 		res.send(result)
 	})
 
+	//DELETE DOCTORS API
+	app.delete('/doctors/:id', async (req, res) => {
+		const id = req.params.id;
+		const query = { _id: ObjectId(id) };
+		const result = await doctorsCollection.deleteOne(query);
+		// console.log(result);
+		res.send(result)
+	})
+
 
 	//APPOINTMENT POST API
 	app.post('/appointments', async (req, res) => {
@@ -120,6 +125,29 @@ client.connect((err) => {
 		res.json(result);
 	})
 
+	//APPOINTMENT PAYMENT API
+	app.get('/appointments/:id', async (req, res) => {
+		const id = req.params.id;
+		// console.log('this is id', id)
+		const query = { _id: ObjectId(id) };
+		const result = await appointmentCollection.findOne(query);
+		res.send(result)
+	})
+
+	//APPOINTMENT PAYMENT SUCCESS API
+	app.put('/appointments/:id', async (req, res) => {
+		const id = req.params.id;
+		const payment = req.body;
+		const filter = { _id: ObjectId(id) }
+		const updateDoc = {
+			$set: {
+				payment: payment
+			}
+		};
+		const result = await appointmentCollection.updateOne(filter, updateDoc);
+		res.json(result)
+	})
+
 	//DELETE APPOINTMENT API
 	app.delete('/appointments/:id', async (req, res) => {
 		const id = req.params.id;
@@ -130,9 +158,10 @@ client.connect((err) => {
 	})
 
 	//GET APPOINTMENT BY EMAIL
-	app.get('/appointments/:email', async (req, res) => {
+	app.get('/appointment/:email', async (req, res) => {
 		// const email = req.query.email;
 		const result = await appointmentCollection.find({ email: req.params.email }).toArray();
+		// console.log(req.params.email)
 		// console.log(result);
 		res.send(result)
 	})
@@ -146,24 +175,21 @@ client.connect((err) => {
 		res.send(result)
 	})
 
-	// meetlink put
-	app.put('/appointments/meetlink', async (req, res) => {
-		const user = req.body;
-		// console.log(user);
-		const filter = { meetlink: user.meetlink };
-		const options = { upsert: true };
-
-		const updateDoc = { $set: { meetlink: 'meetlink' } };
-		const result = await appointmentCollection.updateOne(filter, updateDoc, options);
-		res.json(result);
-	})
-
 	// Added A New Doctor Review
 	app.post('/addReviews', async (req, res) => {
 		const review = req.body;
 		const result = await reviewCollection.insertOne(review)
 		// console.log(result);
 		res.json(result)
+	});
+
+	//REVIEW POST API
+	app.post('/addReview', (req, res) => {
+		const reviewData = req.body;
+		reviewCollection.insertOne(reviewData).then((result) => {
+			res.send(result.insertedCount > 0);
+			console.log(result.insertedCount, 'Review Data Inserted');
+		});
 	});
 
 	//REVIEW GET API
@@ -173,161 +199,19 @@ client.connect((err) => {
 		res.send(result)
 	})
 
-
-	app.post('/addReview', (req, res) => {
-		const reviewData = req.body;
-		reviewCollection.insertOne(reviewData).then((result) => {
-			res.send(result.insertedCount > 0);
-			console.log(result.insertedCount, 'Review Data Inserted');
+	//GET PAYMENT API
+	app.post("/create-payment-intent", async (req, res) => {
+		const paymentInfo = req.body;
+		const amount = paymentInfo.price * 100;
+		const paymentIntent = await stripe.paymentIntents.create({
+			amount: amount,
+			currency: "BDT",
+			payment_method_types: ['card']
 		});
-	});
 
-	//Routes -- Update method
-	// Updating Booking Status
-	app.post('/updateBookingStatus', (req, res) => {
-		const ap = req.body;
-		appointmentCollection.updateOne(
-			{ _id: ObjectId(ap.id) },
-			{
-				$set: { status: ap.status },
-				$currentDate: { lastModified: true }
-			},
-			(err, result) => {
-				if (err) {
-					console.log(err);
-					res.status(500).send({ message: err });
-				} else {
-					res.send(result.modifiedCount > 0);
-					console.log(result.modifiedCount, 'Update Booking Status');
-				}
-			}
-		);
-	});
-
-	// Updating Appointment Date/Time
-	app.post('/updateAppointmentTime', (req, res) => {
-		const ap = req.body;
-		appointmentCollection.updateOne(
-			{ _id: ObjectId(ap.id) },
-			{
-				$set: { date: ap.date, time: ap.time },
-				$currentDate: { lastModified: true }
-			},
-			(err, result) => {
-				if (err) {
-					console.log(err);
-					res.status(500).send({ message: err });
-				} else {
-					res.send(result.modifiedCount > 0);
-					console.log(result.modifiedCount, 'Update Appointment Date / Time');
-				}
-			}
-		);
-	});
-
-	// Added Meeting Link
-	app.post('/addedMeetingLink', (req, res) => {
-		const ap = req.body;
-		appointmentCollection.updateOne(
-			{ _id: ObjectId(ap.id) },
-			{
-				$set: { meeting: ap.meeting },
-				$currentDate: { lastModified: true }
-			},
-			(err, result) => {
-				if (err) {
-					console.log(err);
-					res.status(500).send({ message: err });
-				} else {
-					res.send(result.modifiedCount > 0);
-					console.log(result.modifiedCount, 'Meeting Link Inserted');
-				}
-			}
-		);
-	});
-
-	// Updating Appointment Visiting Status
-	app.post('/updateVisitingStatus', (req, res) => {
-		const ap = req.body;
-		appointmentCollection.updateOne(
-			{ _id: ObjectId(ap.id) },
-			{
-				$set: { visitingStatus: ap.visitingStatus },
-				$currentDate: { lastModified: true }
-			},
-			(err, result) => {
-				if (err) {
-					console.log(err);
-					res.status(500).send({ message: err });
-				} else {
-					res.send(result.modifiedCount > 0);
-					console.log(result.modifiedCount, 'Update <Visiti></Visiti>ng Status');
-				}
-			}
-		);
-	});
-
-	// Updating Prescription
-	app.post('/updatePrescription', (req, res) => {
-		const ap = req.body;
-		appointmentCollection.updateOne(
-			{ _id: ObjectId(ap.id) },
-			{
-				$set: { prescription: ap.prescription },
-				$currentDate: { lastModified: true }
-			},
-			(err, result) => {
-				if (err) {
-					console.log(err);
-					res.status(500).send({ message: err });
-				} else {
-					res.send(result.modifiedCount > 0);
-					console.log(result.modifiedCount, 'Update Prescription');
-				}
-			}
-		);
-	});
-
-	// Updating Disease
-	app.post('/updateDisease', (req, res) => {
-		const ap = req.body;
-		appointmentCollection.updateOne(
-			{ _id: ObjectId(ap.id) },
-			{
-				$set: { disease: ap.problem },
-				$currentDate: { lastModified: true }
-			},
-			(err, result) => {
-				if (err) {
-					console.log(err);
-					res.status(500).send({ message: err });
-				} else {
-					res.send(result.modifiedCount > 0);
-					console.log(result.modifiedCount, 'Update Disease');
-				}
-			}
-		);
-	});
-
-	// Added Payment
-	app.post('/addedPayment', (req, res) => {
-		const ap = req.body;
-		appointmentCollection.updateOne(
-			{ _id: ObjectId(ap.id) },
-			{
-				$set: { paymentID: ap.paymentID },
-				$currentDate: { lastModified: true }
-			},
-			(err, result) => {
-				if (err) {
-					console.log(err);
-					res.status(500).send({ message: err });
-				} else {
-					res.send(result.modifiedCount > 0);
-					console.log(result.modifiedCount, 'Payment Inserted');
-				}
-			}
-		);
+		res.json({
+			clientSecret: paymentIntent.client_secret,
+		});
 	});
 
 });
