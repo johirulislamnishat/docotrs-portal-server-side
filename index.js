@@ -22,6 +22,7 @@ client.connect((err) => {
 	const usersCollection = client.db('doctorsPortal').collection('users');
 	const doctorsCollection = client.db('doctorsPortal').collection('doctors');
 	const appointmentCollection = client.db('doctorsPortal').collection('appointments');
+	const patientCollection = client.db('doctorsPortal').collection('patients');
 	const reviewCollection = client.db('doctorsPortal').collection('addReviews');
 
 
@@ -114,6 +115,7 @@ client.connect((err) => {
 	app.post('/appointments', async (req, res) => {
 		const appointments = req.body;
 		const result = await appointmentCollection.insertOne(appointments)
+		// const data = await patientCollection.insertOne(patients)
 		// console.log(result);
 		res.json(result)
 	});
@@ -123,6 +125,80 @@ client.connect((err) => {
 		const cursor = appointmentCollection.find({});
 		const result = await cursor.toArray();
 		res.json(result);
+	})
+
+	//appointment status update
+	app.patch("/update-status/:statusId", (req, res) => {
+		const id = req.params.statusId;
+		// console.log(id)
+		const status = req.body.status;
+		// console.log('abcd')
+		// console.log(req.body)
+		appointmentCollection
+			.updateOne(
+				{ _id: ObjectId(id) },
+				{
+					$set: {
+						status,
+					},
+				}
+			)
+			.then((result) => {
+				res.send({
+					message: "delivery status updated successfully",
+					modified: result.modifiedCount > 0,
+				});
+			});
+	});
+
+
+	//appointment meetlink update
+	// app.patch("/update-meeting/:meetId", (req, res) => {
+	// 	const meetId = req.params.meetId;
+	// 	console.log(meetId)
+	// 	const meetinglink = req.body.meetinglink;
+	// 	console.log('abcd')
+	// 	console.log(req.body)
+	// 	appointmentCollection
+	// 		.updateOne(
+	// 			{ _id: ObjectId(meetId) },
+	// 			{
+	// 				$set: {
+	// 					meetinglink,
+	// 				},
+	// 			}
+	// 		)
+	// 		.then((result) => {
+	// 			res.send({
+	// 				message: "delivery status updated successfully",
+	// 				modified: result.modifiedCount > 0,
+	// 			});
+	// 		});
+	// });
+
+	//GET MEETING API
+	app.get('/meeting/:id', async (req, res) => {
+		const id = req.params.id;
+		// console.log('this is id', id)
+		const query = { _id: ObjectId(id) };
+		const data = await appointmentCollection.findOne(query);
+		res.send(data)
+	})
+
+	//PUT MEETING API
+	app.put('/meeting/:id', async (req, res) => {
+		const id = req.params.id;
+		// console.log('this is id', id)
+		const updatedLink = req.body;
+		const filter = { _id: ObjectId(id) };
+		const options = { upsert: true };
+		const updateDoc = {
+			$set: {
+				meetingLink: updatedLink.meetingLink
+			}
+		}
+		const data = await appointmentCollection.updateOne(filter, updateDoc, options);
+		res.send(data)
 	})
 
 	//APPOINTMENT PAYMENT API
