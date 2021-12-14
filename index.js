@@ -28,9 +28,9 @@ client.connect((err) => {
 
 	console.log('Doctors Portal DataBase Connected');
 
-	//Routes -- Get method
+
 	// Root Route
-	app.get('/', (req, res) => res.send('Welcome to Doctors Portal Backed'));
+	app.get('/', (req, res) => res.send('Welcome to Doctors Portal Backend'));
 
 	//USER POST API 
 	app.post('/users', async (req, res) => {
