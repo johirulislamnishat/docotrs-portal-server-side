@@ -151,30 +151,31 @@ client.connect((err) => {
 			});
 	});
 
+	//GET PRESCRIPTION API
+	app.get('/prescription/:id', async (req, res) => {
+		const id = req.params.id;
+		// console.log('this is id', id)
+		const query = { _id: ObjectId(id) };
+		const data = await appointmentCollection.findOne(query);
+		res.send(data)
+	})
 
-	//appointment meetlink update
-	// app.patch("/update-meeting/:meetId", (req, res) => {
-	// 	const meetId = req.params.meetId;
-	// 	console.log(meetId)
-	// 	const meetinglink = req.body.meetinglink;
-	// 	console.log('abcd')
-	// 	console.log(req.body)
-	// 	appointmentCollection
-	// 		.updateOne(
-	// 			{ _id: ObjectId(meetId) },
-	// 			{
-	// 				$set: {
-	// 					meetinglink,
-	// 				},
-	// 			}
-	// 		)
-	// 		.then((result) => {
-	// 			res.send({
-	// 				message: "delivery status updated successfully",
-	// 				modified: result.modifiedCount > 0,
-	// 			});
-	// 		});
-	// });
+	//PUT PRESCRIPTION API
+	app.put('/prescription/:id', async (req, res) => {
+		const id = req.params.id;
+		// console.log('this is id', id)
+		const updatedPrescription = req.body;
+		const filter = { _id: ObjectId(id) };
+		const options = { upsert: true };
+		const updateDoc = {
+			$set: {
+				prescriptions: updatedPrescription.prescriptions
+			}
+		}
+		const data = await appointmentCollection.updateOne(filter, updateDoc, options);
+		res.send(data)
+	})
+
 
 	//GET MEETING API
 	app.get('/meeting/:id', async (req, res) => {
@@ -200,6 +201,8 @@ client.connect((err) => {
 		const data = await appointmentCollection.updateOne(filter, updateDoc, options);
 		res.send(data)
 	})
+
+
 
 	//APPOINTMENT PAYMENT API
 	app.get('/appointments/:id', async (req, res) => {
@@ -236,6 +239,8 @@ client.connect((err) => {
 	//GET APPOINTMENT BY EMAIL
 	app.get('/appointment/:email', async (req, res) => {
 		// const email = req.query.email;
+		// const date = new Date(req.query.date).toLocaleDateString();
+		// console.log(date)
 		const result = await appointmentCollection.find({ email: req.params.email }).toArray();
 		// console.log(req.params.email)
 		// console.log(result);
