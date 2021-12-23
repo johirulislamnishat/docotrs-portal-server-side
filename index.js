@@ -24,6 +24,8 @@ client.connect((err) => {
 	const appointmentCollection = client.db('doctorsPortal').collection('appointments');
 	const patientCollection = client.db('doctorsPortal').collection('patients');
 	const reviewCollection = client.db('doctorsPortal').collection('addReviews');
+	const contactCollection = client.db('doctorsPortal').collection('contact');
+	const blogsCollection = client.db('doctorsPortal').collection('blogs');
 
 
 	console.log('Doctors Portal DataBase Connected');
@@ -202,8 +204,6 @@ client.connect((err) => {
 		res.send(data)
 	})
 
-
-
 	//APPOINTMENT PAYMENT API
 	app.get('/appointments/:id', async (req, res) => {
 		const id = req.params.id;
@@ -294,6 +294,63 @@ client.connect((err) => {
 			clientSecret: paymentIntent.client_secret,
 		});
 	});
+
+	//CONTACT POST API
+	app.post('/contact', async (req, res) => {
+		const contact = req.body;
+		const result = await contactCollection.insertOne(contact)
+		// console.log(result);
+		res.json(result)
+	});
+
+	//CONTACT GET API
+	app.get('/contact', async (req, res) => {
+		const cursor = contactCollection.find({});
+		const result = await cursor.toArray();
+		res.send(result)
+	})
+
+	//DELETE CONTACT API
+	app.delete('/deleteContacts/:id', async (req, res) => {
+		const id = req.params.id;
+		const query = { _id: ObjectId(id) };
+		const result = await contactCollection.deleteOne(query);
+		// console.log(result);
+		res.send(result)
+	})
+
+	//BLOG POST API
+	app.post('/blogs', async (req, res) => {
+		const blogs = req.body;
+		const result = await blogsCollection.insertOne(blogs)
+		// console.log(result);
+		res.json(result)
+	});
+
+	//BLOG GET API
+	app.get('/blogs', async (req, res) => {
+		const cursor = blogsCollection.find({});
+		const result = await cursor.toArray();
+		res.send(result)
+	})
+
+	//BLOG BY ID API
+	app.get('/blogs/:id', async (req, res) => {
+		const id = req.params.id;
+		// console.log('this is id', id)
+		const query = { _id: ObjectId(id) };
+		const result = await blogsCollection.findOne(query);
+		res.send(result)
+	})
+
+	//DELETE BLOG API
+	app.delete('/blogs/:id', async (req, res) => {
+		const id = req.params.id;
+		const query = { _id: ObjectId(id) };
+		const result = await blogsCollection.deleteOne(query);
+		// console.log(result);
+		res.send(result)
+	})
 
 });
 
